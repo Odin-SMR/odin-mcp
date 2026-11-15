@@ -1,12 +1,12 @@
 # Odin L2-dataset
 
-The Odin L2-dataset is available at the following bucket:
+Discover the publicly indexed Odin L2 files through:
 
-s3://odin-level2
+https://odin-smr.org/parquet/archive/index.json
 
-A historical example Parquet path looks like this (discover current files through an authorized listing):
+Example Parquet URL verified in the public inventory on 2026-11-15:
 
-s3://odin-level2/project=ALL-Strat-v3.0.0/freq_mode=2/inv_mode=stnd/product=O3-545GHz-20to85km/year=2025/month=01/e5979a5400b04e18be54130aafa28a8e-0.parquet
+https://odin-smr.org/l2/project=ALL-Strat-v3.0.0/freq_mode=1/inv_mode=stnd/product=O3-501GHz-20to50km/year=2019/month=03/c8c96302988a4445ab662df76b323913-0.parquet
 
 Partition scheme:
 
@@ -52,7 +52,7 @@ Schema reference:
 
 - `dataset_schema.md`
 
-Direct S3 tools require an approved AWS profile. Public access methods are described
-in the [Odin Parquet guide](https://odin-smr.org/parquet/guide.md). A missing parent
-partition prevents narrowing the prefix below that level. Inspect the actual
+MCP data tools use anonymous HTTPS without AWS credentials. Public access methods
+are described in the [Odin Parquet guide](https://odin-smr.org/parquet/guide.md).
+Narrow product/date filters to stay within the metadata and download budgets. Inspect the actual
 release and retain input identities before interpreting observations.

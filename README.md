@@ -4,13 +4,13 @@
 
 A local [Model Context Protocol](https://modelcontextprotocol.io/) server for
 researchers working with Odin SMR Level 2 observations. It provides cited analysis
-methods, dataset-layout guidance and optional read-only S3/Parquet tools to your
+methods, dataset-layout guidance and anonymous HTTPS data-discovery and Parquet tools to your
 AI application.
 
 The server runs on your computer over **stdio**. Your AI application supplies the
 model; this package makes no LLM calls, needs no LLM API key, and does not submit
-AWS analysis jobs. Guidance and schema resources work without AWS credentials or
-network access after installation. Your AI application's model may still use a
+AWS analysis jobs. No AWS credentials or API keys are needed. Guidance and schema resources also
+work without network access after installation. Your AI application's model may still use a
 remote provider, including for tool results sent to it.
 
 ## Requirements
@@ -22,18 +22,22 @@ remote provider, including for tool results sent to it.
   Python with pip in a virtual environment.
 - Internet access for installation unless dependencies are cached.
 
-AWS access is optional and needed only for the direct observation-data tools.
+Data discovery and previews use the public HTTPS endpoints on `odin-smr.org`.
+They require internet access, but no AWS account, profile or login.
 
 ## Install
 
 ### From a versioned release
 
 Download a wheel from [GitHub Releases](https://github.com/Odin-SMR/odin-mcp/releases).
-For version 0.1.0, install the published wheel in an isolated tool environment:
+For version 0.2.0, install the published wheel in an isolated tool environment:
 
 ```sh
-uv tool install --python 3.13 https://github.com/Odin-SMR/odin-mcp/releases/download/v0.1.0/odin_mcp-0.1.0-py3-none-any.whl
+uv tool install --python 3.13 https://github.com/Odin-SMR/odin-mcp/releases/download/v0.2.0/odin_mcp-0.2.0-py3-none-any.whl
 ```
+
+If an older version is already installed, add `--force` to the `uv tool install`
+command, then restart the MCP server in your client.
 
 uv can install the requested Python version if it is missing. Run `uv tool update-shell`
 if needed, then restart your terminal so that `odin-mcp` is on PATH. You can also
@@ -71,7 +75,7 @@ Add a local MCP server in the application's settings:
 | Transport | `stdio` |
 | Command after tool installation | `odin-mcp`, or its absolute executable path |
 | Arguments | None |
-| Environment for guidance | None required |
+| Environment | None required for guidance or public data access |
 
 For a source installation, use `/absolute/path/to/odin-mcp/.venv/bin/odin-mcp`
 on Linux/macOS, or `C:\path\to\odin-mcp\.venv\Scripts\odin-mcp.exe` on Windows.
@@ -122,13 +126,13 @@ code-execution capability. These knowledge tools do not run scientific analyses.
 
 ## Capabilities
 
-| Tools | Purpose | Needs AWS access? |
+| Tools | Purpose | Needs internet? |
 | --- | --- | --- |
 | `list_research_topics_tool()` | Browse topics and citations | No |
 | `get_research_topic_tool(topic_id)` | Read a complete topic | No |
 | `search_research_guidance_tool(query, limit=5)` | Find up to eight cited snippets | No |
-| `list_partition_values_tool(...)` | Discover S3 partition values | Yes |
-| `list_parquet_files_tool(...)` | List Parquet objects | Yes |
+| `list_partition_values_tool(...)` | Discover public inventory partition values | Yes |
+| `list_parquet_files_tool(...)` | List public Parquet URLs and provenance | Yes |
 | `read_parquet_preview_tool(...)` | Read a small row sample and schema | Yes |
 | `read_parquet_columns_tool(...)` | Select columns and limit returned rows | Yes |
 
@@ -150,31 +154,56 @@ product/version, screening, coordinates, sampling and uncertainty before plottin
 The literature guide is a dated snapshot, not a live literature search or a
 validation of arbitrary measurements.
 
-## Optional direct data access
+## Anonymous HTTPS data access
 
-The existing data tools read `s3://odin-level2` using an AWS profile already
-configured on the researcher's machine. The default name is `odin`; set
-`ODIN_AWS_PROFILE` in the MCP client's server environment to use another approved
-profile. The profile needs permission to list the intended bucket/prefixes and
-read selected objects. Use researcher-specific read-only access; never copy an
-administrator's credentials or put tokens in client configuration files, chat or Git.
+The data tools use the public JSON discovery endpoints
+[`/parquet/archive/index.json`](https://odin-smr.org/parquet/archive/index.json)
+and [`/parquet/catalog.json`](https://odin-smr.org/parquet/catalog.json), then read
+selected public Parquet files over HTTPS. Discovery and numerical decoding happen
+on the researcher's machine. No AWS SDK, credentials, signed requests or cloud
+analysis jobs are involved.
 
-No login is required for the bundled guidance. Anonymous published-data access is
-available separately through [odin-smr.org](https://odin-smr.org/) and its
-[Parquet guide](https://odin-smr.org/parquet/guide.md); this MCP's direct readers do
-not yet implement the public HTTP API.
+The archive index is a dated metadata snapshot. Its file inventory is not a
+scientific-completeness or quality guarantee. The separate catalog identifies
+selected tutorial examples and their checksums. The public profile API's reduced
+JSON projection is not substituted for original Parquet fields such as priors
+and averaging kernels. Do not infer validity from a filename, a null quality
+flag or a successful read. Odin limb profiles are not greenhouse-gas columns
+or emission estimates.
 
-The partition order is `project/freq_mode/inv_mode/product/year/month`. Supply the
-parent partitions when narrowing a date: a missing parent stops prefix construction.
-A preview is not a complete temporal or spatial sample. **A small returned row count
-can still require downloading a whole Parquet object.** Start with specific files;
-there is no download-byte cap. S3 requests and data transfer may incur charges even
-though MCP computation runs locally.
+For a first data request, ask the assistant:
 
-Do not infer product validity from a filename, null quality flag or successful
-read. Consult [the field guide](docs/dataset_schema.md) and the product-specific
-validation sources before analysis. Do not treat Odin limb profiles as greenhouse-gas
-columns or emission estimates.
+> List a few public files for ALL-Strat-v3.0.0, frequency mode 1, inversion mode
+> stnd, O3-501GHz-20to50km, March 2019. Then read five rows from one returned URL,
+> keeping its provenance and explaining why the preview is not a monthly mean.
+
+Use `list_parquet_files_tool` to obtain `file_urls`, then supply one as `file_url`
+to a preview or column-read tool. Narrowing the project/product and dates reduces
+metadata work. Follow continuation tokens for the intended file selection; a
+single page or preview does not establish complete temporal or spatial coverage.
+Partition year/month labels do not replace filtering actual observation timestamps.
+
+Downloads, metadata, decoding and returned JSON have explicit limits. A small row
+count can still require fetching the selected file. Oversized requests fail with
+an explanation so that you can narrow the request or use a separate local script;
+arrays and profiles must not be silently shortened to fit. Source nulls stay null;
+non-finite numeric values are represented explicitly as strings rather than invalid
+JSON numbers, with the representation stated in the result.
+
+Only approved public Odin HTTPS URLs are accepted. Redirects, credential-bearing
+URLs and unrelated hosts are rejected. HTTP failures and empty selections are
+different outcomes. Retain the reported source identity and checksum status;
+ETags alone are not scientific content checksums. Consult the
+[public Parquet guide](https://odin-smr.org/parquet/guide.md) and
+[field guide](docs/dataset_schema.md) before interpreting observations.
+
+### Upgrading from 0.1.0
+
+The four data-tool names remain, but their transport and file-reference contract
+change in 0.2.0: use `file_url` and `file_urls` instead of `s3_uri` and `s3_uris`.
+Rediscover files through the HTTPS tools; do not mechanically rewrite S3 URIs.
+Remove `ODIN_AWS_PROFILE` and `ODIN_BUCKET` from client settings: they are no longer
+used. Research tools, resources and the planning prompt remain available offline.
 
 ## Configuration
 
@@ -182,17 +211,32 @@ Set optional environment variables on the client's MCP server entry:
 
 | Variable | Default |
 | --- | --- |
-| `ODIN_AWS_PROFILE` | `odin` |
-| `ODIN_BUCKET` | `odin-level2` |
 | `ODIN_MAX_FILES_PER_READ` | `5` |
 | `ODIN_MAX_ROWS_PER_READ` | `1000` (per file) |
-| `ODIN_MAX_COLUMNS_PER_READ` | `20` (explicit column requests) |
+| `ODIN_MAX_COLUMNS_PER_READ` | `20` (preview or explicit selection) |
 | `ODIN_DEFAULT_PREVIEW_ROWS` | `100` |
 | `ODIN_MAX_LIST_RESULTS` | `1000` (file-list request limit) |
 
-These settings bound selected outputs, not total bytes downloaded or all partition
-listing work. There is no hosted team-login flow, remote job execution or autonomous
-reviewer in this version.
+The default HTTPS work limits are:
+
+| Setting / limit | Default |
+| --- | --- |
+| `ODIN_MAX_METADATA_RESPONSE_BYTES` | 2 MiB (2097152 bytes) |
+| `ODIN_MAX_METADATA_BYTES` per call | 16 MiB (16777216 bytes) |
+| `ODIN_MAX_HTTP_REQUESTS` per call | 32 |
+| `ODIN_MAX_FILE_BYTES` | 32 MiB (33554432 bytes) |
+| `ODIN_MAX_DOWNLOAD_BYTES` per call | 64 MiB (67108864 bytes) |
+| `ODIN_MAX_DECODED_BYTES` selected row-group size per call | 64 MiB (67108864 bytes) |
+| `ODIN_MAX_OUTPUT_BYTES` compact logical JSON result, including arrays | 1 MiB (1048576 bytes) |
+| Connect / read inactivity timeout (fixed) | 5 / 15 seconds |
+| `ODIN_OPERATION_TIMEOUT_SECONDS` checked deadline | 60 seconds |
+
+MCP clients may receive the same result as both text and structured content, so
+the protocol message can exceed the logical JSON limit. The decoding guard uses Parquet metadata; it is not an operating-system memory
+limit or a hard interruption of native decoding. Narrow an oversized request or
+use a separate scientific script. Results report the applied limits and transfer
+work so clients can distinguish row sampling from download volume. There is no
+hosted team-login flow, remote job execution or autonomous reviewer in this version.
 
 ## Development and releases
 
@@ -210,7 +254,7 @@ and tagged GitHub release workflow.
 For manual tool inspection, run `npx @modelcontextprotocol/inspector` and connect
 using stdio with the same executable and no arguments. Guidance inspection needs
 no AWS credentials; the optional [data test cases](tests/inspector/manual_test_cases.md)
-require explicitly authorized archive access.
+use anonymous HTTPS and should be run only when a real data read is intended.
 
 ## License and scientific sources
 

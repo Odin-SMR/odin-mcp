@@ -28,4 +28,4 @@ For greenhouse-gas research, useful starting questions concern N2O transport and
 | Is there a long-term change? | `climatology-trends` | `quality-screening`, `plot-atlas` recipe 12 |
 | Is an event chemical loss or dynamical redistribution? | `dynamics-events` | `plot-atlas` recipes 13–15 |
 
-Use `list_research_topics_tool`, `get_research_topic_tool` and `search_research_guidance_tool` for cited guidance. Read `odin://research/sources` for publication dates and evidence scope. The `plan_odin_analysis` prompt helps turn a question into a reproducible plan. Access to this guide requires no AWS credentials; the existing S3 data tools have separate access requirements.
+Use `list_research_topics_tool`, `get_research_topic_tool` and `search_research_guidance_tool` for cited guidance. Read `odin://research/sources` for publication dates and evidence scope. The `plan_odin_analysis` prompt helps turn a question into a reproducible plan. Access to this guide works offline without credentials. Observation discovery and previews use anonymous HTTPS and require internet access, with explicit request and size limits.

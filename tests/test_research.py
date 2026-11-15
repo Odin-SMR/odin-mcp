@@ -89,7 +89,7 @@ def test_offline_mcp_protocol(monkeypatch):
     def deny_io(*args, **kwargs):
         raise AssertionError("Knowledge requests must not open network/archive connections")
 
-    monkeypatch.setattr("odin_mcp.s3_browser._client", deny_io)
+    monkeypatch.setattr("odin_mcp.public_http._client", deny_io)
     monkeypatch.setattr("odin_mcp.parquet_reader._read_single_file", deny_io)
 
     async def exercise():

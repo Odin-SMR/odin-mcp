@@ -7,8 +7,9 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import StrictInt
 
-from odin_mcp.config import PARTITION_LEVELS, SETTINGS
-from odin_mcp.parquet_reader import read_many
+from odin_mcp.config import SETTINGS
+from odin_mcp.parquet_reader import read_many, validate_read_request
+from odin_mcp.public_http import Budget, PublicDataError
 from odin_mcp.research import (
     analysis_prompt,
     get_research_topic,
@@ -17,11 +18,7 @@ from odin_mcp.research import (
     research_sources,
     search_research_guidance,
 )
-from odin_mcp.s3_browser import (
-    PartitionFilters,
-    list_parquet_files,
-    list_partition_values,
-)
+from odin_mcp.catalog import Catalog, PartitionFilters
 from odin_mcp.schema_resource import dataset_schema_json, dataset_schema_markdown
 
 mcp = FastMCP("odin-level2")
@@ -132,175 +129,120 @@ def plan_odin_analysis(question: str, product: str | None = None) -> str:
     return analysis_prompt(question, product)
 
 
-@mcp.tool()
+_DATA_ANNOTATIONS = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=True)
+
+
+def _data_ok(data: dict[str, Any], budget: Budget, warnings: list[str] | None = None) -> dict[str, Any]:
+    data["access"] = budget.receipt()
+    response = _ok(data, warnings)
+    budget.check_output(response)
+    return response
+
+
+@mcp.tool(annotations=_DATA_ANNOTATIONS)
 def list_partition_values_tool(
-    level: str,
-    project: str | None = None,
-    freq_mode: str | None = None,
-    inv_mode: str | None = None,
-    product: str | None = None,
-    year: str | None = None,
-    month: str | None = None,
+    level: str, project: str | None = None, freq_mode: str | None = None,
+    inv_mode: str | None = None, product: str | None = None,
+    year: str | None = None, month: str | None = None,
 ) -> dict[str, Any]:
-    """List available partition values for a given partition level.
+    """Discover published L2 partition values over anonymous HTTPS.
 
-    The level must be one of: project, freq_mode, inv_mode, product, year, month.
-    Optional filter arguments narrow the parent partition path.
+    Apply all provided filters. Year/month are storage labels, not row-time
+    filters. A budget error never represents a complete empty selection.
     """
     try:
-        values = list_partition_values(
-            level=level,
-            filters=_filters(
-                project=project,
-                freq_mode=freq_mode,
-                inv_mode=inv_mode,
-                product=product,
-                year=year,
-                month=month,
-            ),
-        )
-        return _ok(
-            {
-                "bucket": SETTINGS.bucket,
-                "aws_profile": SETTINGS.aws_profile,
-                "level": level,
-                "valid_levels": PARTITION_LEVELS,
-                "values": values,
-            }
-        )
-    except Exception as exc:
+        budget = Budget()
+        result = Catalog(budget).partition_values(level, _filters(project, freq_mode, inv_mode, product, year, month))
+        return _data_ok(result, budget)
+    except ValueError as exc:
         return _error(str(exc))
 
 
-@mcp.tool()
+@mcp.tool(annotations=_DATA_ANNOTATIONS)
 def list_parquet_files_tool(
-    project: str | None = None,
-    freq_mode: str | None = None,
-    inv_mode: str | None = None,
-    product: str | None = None,
-    year: str | None = None,
-    month: str | None = None,
-    limit: int = 100,
-    continuation_token: str | None = None,
+    project: str | None = None, freq_mode: str | None = None,
+    inv_mode: str | None = None, product: str | None = None,
+    year: str | None = None, month: str | None = None,
+    limit: StrictInt = 100, continuation_token: str | None = None,
 ) -> dict[str, Any]:
-    """List parquet file URIs under the selected partition prefix."""
-    try:
-        result = list_parquet_files(
-            filters=_filters(
-                project=project,
-                freq_mode=freq_mode,
-                inv_mode=inv_mode,
-                product=product,
-                year=year,
-                month=month,
-            ),
-            limit=limit,
-            continuation_token=continuation_token,
-        )
-        return _ok(result)
-    except Exception as exc:
-        return _error(str(exc))
+    """List published HTTPS Parquet URLs and provenance with snapshot-bound pagination.
 
-
-@mcp.tool()
-def read_parquet_preview_tool(
-    s3_uri: str | None = None,
-    project: str | None = None,
-    freq_mode: str | None = None,
-    inv_mode: str | None = None,
-    product: str | None = None,
-    year: str | None = None,
-    month: str | None = None,
-    rows: int = SETTINGS.default_preview_rows,
-    max_files: int = 1,
-) -> dict[str, Any]:
-    """Read parquet schema and preview rows.
-
-    Provide either explicit s3_uri or partition filters. When filters are used,
-    up to max_files parquet files are selected.
+    All filters apply, including when earlier partition levels are omitted.
+    Follow next_token with identical filters; errors are not partial coverage.
     """
     try:
-        uris = [s3_uri] if s3_uri else []
-        warnings: list[str] = []
-
-        if not uris:
-            listed = list_parquet_files(
-                filters=_filters(
-                    project=project,
-                    freq_mode=freq_mode,
-                    inv_mode=inv_mode,
-                    product=product,
-                    year=year,
-                    month=month,
-                ),
-                limit=max_files,
-            )
-            uris = listed["s3_uris"]
-            if not uris:
-                return _error("No parquet files found for the provided filters")
-            if listed.get("next_token"):
-                warnings.append("More files exist under this prefix; refine filters for deterministic reads")
-
-        result = read_many(s3_uris=uris, rows=rows, columns=None)
-        result["requested"] = {
-            "rows": rows,
-            "max_files": max_files,
-            "resolved_file_count": len(uris),
-        }
-        return _ok(result, warnings=warnings)
-    except Exception as exc:
+        budget = Budget()
+        result = Catalog(budget).list_files(_filters(project, freq_mode, inv_mode, product, year, month), limit, continuation_token)
+        return _data_ok(result, budget)
+    except ValueError as exc:
         return _error(str(exc))
 
 
-@mcp.tool()
-def read_parquet_columns_tool(
-    columns: list[str],
-    s3_uri: str | None = None,
-    project: str | None = None,
-    freq_mode: str | None = None,
-    inv_mode: str | None = None,
-    product: str | None = None,
-    year: str | None = None,
-    month: str | None = None,
-    rows: int = SETTINGS.default_preview_rows,
-    max_files: int = 1,
-) -> dict[str, Any]:
-    """Read selected columns from parquet files with row limits."""
+def _read(file_url: str | None, s3_uri: str | None, filters: PartitionFilters,
+          rows: int, max_files: int, columns: list[str] | None) -> dict[str, Any]:
     try:
-        if not columns:
-            return _error("columns must contain at least one column name")
-
-        uris = [s3_uri] if s3_uri else []
-        warnings: list[str] = []
-
-        if not uris:
-            listed = list_parquet_files(
-                filters=_filters(
-                    project=project,
-                    freq_mode=freq_mode,
-                    inv_mode=inv_mode,
-                    product=product,
-                    year=year,
-                    month=month,
-                ),
-                limit=max_files,
-            )
-            uris = listed["s3_uris"]
-            if not uris:
-                return _error("No parquet files found for the provided filters")
-            if listed.get("next_token"):
-                warnings.append("More files exist under this prefix; refine filters for deterministic reads")
-
-        result = read_many(s3_uris=uris, rows=rows, columns=columns)
-        result["requested"] = {
-            "rows": rows,
-            "columns": columns,
-            "max_files": max_files,
-            "resolved_file_count": len(uris),
-        }
-        return _ok(result, warnings=warnings)
-    except Exception as exc:
+        if s3_uri is not None:
+            raise PublicDataError("s3_uri is no longer supported. Discover public file_urls with list_parquet_files_tool and pass file_url; AWS credentials are not used.")
+        budget = Budget()
+        validate_read_request(rows, columns, budget)
+        if isinstance(max_files, bool) or not isinstance(max_files, int) or not 1 <= max_files <= budget.settings.max_files_per_read:
+            raise PublicDataError(f"max_files must be between 1 and {budget.settings.max_files_per_read}")
+        selection = filters.as_mapping()
+        catalog = Catalog(budget)
+        warnings = ["Preview rows can split scans/profiles; inspect full coverage before scientific analysis.",
+                    "Non-finite numbers are strings NaN/Infinity/-Infinity; true missing values remain null."]
+        if file_url is not None:
+            if any(value is not None for value in selection.values()):
+                raise PublicDataError("Use either file_url or partition filters, not both")
+            records = [catalog.resolve_file(file_url)]
+            listing = {"file_urls": [file_url], "selection": "exact catalog-listed URL"}
+        else:
+            listing = catalog.list_files(filters, max_files)
+            records = listing["files"]
+            if not records:
+                raise PublicDataError("No published Parquet files match the supplied storage filters")
+            if listing["has_more"]:
+                warnings.append("Additional catalog records remain. The selected files are a bounded preview, not complete coverage.")
+        result = read_many(records, rows, columns, budget=budget)
+        result["file_selection"] = {key: value for key, value in listing.items() if key != "files"}
+        result["requested"] = {"rows_per_file": rows, "max_files": max_files, "columns": columns}
+        return _data_ok(result, budget, warnings)
+    except ValueError as exc:
         return _error(str(exc))
+
+
+@mcp.tool(annotations=_DATA_ANNOTATIONS)
+def read_parquet_preview_tool(
+    file_url: str | None = None, s3_uri: str | None = None,
+    project: str | None = None, freq_mode: str | None = None,
+    inv_mode: str | None = None, product: str | None = None,
+    year: str | None = None, month: str | None = None,
+    rows: StrictInt = SETTINGS.default_preview_rows, max_files: StrictInt = 1,
+) -> dict[str, Any]:
+    """Read actual Parquet schema and bounded rows over anonymous HTTPS.
+
+    Supply an exact catalog-listed file_url, or storage partition filters.
+    Whole files are transferred within byte budgets. No quality screening or
+    time filtering occurs. Legacy s3_uri returns migration guidance.
+    """
+    return _read(file_url, s3_uri, _filters(project, freq_mode, inv_mode, product, year, month), rows, max_files, None)
+
+
+@mcp.tool(annotations=_DATA_ANNOTATIONS)
+def read_parquet_columns_tool(
+    columns: list[str], file_url: str | None = None, s3_uri: str | None = None,
+    project: str | None = None, freq_mode: str | None = None,
+    inv_mode: str | None = None, product: str | None = None,
+    year: str | None = None, month: str | None = None,
+    rows: StrictInt = SETTINGS.default_preview_rows, max_files: StrictInt = 1,
+) -> dict[str, Any]:
+    """Read selected physical columns, preserving nulls, nanoseconds and kernels.
+
+    Supply an exact catalog-listed file_url, or storage partition filters.
+    Row/column limits do not reduce full-file HTTPS transfer. Nested arrays are
+    subject to the output budget; no automatic scientific filtering is applied.
+    """
+    return _read(file_url, s3_uri, _filters(project, freq_mode, inv_mode, product, year, month), rows, max_files, columns)
 
 
 def run() -> None:

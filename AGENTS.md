@@ -10,8 +10,9 @@ guidance. Repository instructions do not grant access to data or cloud resources
 - Keep guidance tools usable without network access or AWS credentials.
 - Never commit credentials, environment files, local machine settings, downloaded
   observations or generated figures. Use synthetic fixtures in offline tests.
-- Use approved read-only credentials only when a user explicitly requests real
-  data access. Do not initiate paid computation or deployment from a test.
+- Data tools must use anonymous HTTPS and must not load AWS credentials, netrc
+  authentication or authenticated cookies. Bound metadata, downloads and returned
+  results. Do not initiate paid computation or deployment from a test.
 - Coordinate file ownership when several people or agents work in the checkout;
   preserve unrelated edits and never reset, stash or switch another worker's branch.
 - Test every supported Python version through the CI matrix and verify built

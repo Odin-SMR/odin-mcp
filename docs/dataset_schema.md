@@ -5,9 +5,9 @@ partition structure.
 
 Dataset location:
 
-- `s3://odin-level2`
+- [public HTTPS inventory](https://odin-smr.org/parquet/archive/index.json)
 
-Official production projects:
+Example project names (discover the current public inventory before selection):
 
 - `ALL-Strat-v3.0.0`
 - `ALL-Meso-v3.0.0`
@@ -26,7 +26,7 @@ Parquet files are partitioned in this fixed order:
 
 Example object path:
 
-`s3://odin-level2/project=ALL-Strat-v3.0.0/freq_mode=2/inv_mode=stnd/product=O3-545GHz-20to85km/year=2025/month=01/e5979a5400b04e18be54130aafa28a8e-0.parquet`
+`https://odin-smr.org/l2/project=ALL-Strat-v3.0.0/freq_mode=1/inv_mode=stnd/product=O3-501GHz-20to50km/year=2019/month=03/c8c96302988a4445ab662df76b323913-0.parquet`
 
 ## Partition Meaning
 
@@ -34,8 +34,8 @@ Example object path:
 - `freq_mode`: Frequency mode identifier used for retrieval configuration.
 - `inv_mode`: Inversion mode (`stnd`, `meso`, and similar).
 - `product`: Product family and vertical or spectral definition.
-- `year`: UTC year partition.
-- `month`: UTC month partition (`01` through `12`).
+- `year`: Storage year label; verify actual observation timestamps.
+- `month`: Storage month label (`01` through `12`), not a row-time filter.
 
 ## Column Schema and Stability
 
@@ -105,4 +105,5 @@ source-linked research methods guide.
 4. Inspect schema with `read_parquet_preview_tool` on representative files, then
    verify schema generations across the intended selection. A preview is bounded
    and does not establish completeness or scientific validity.
-5. Use `read_parquet_columns_tool` for projected reads in production workflows.
+5. Use `read_parquet_columns_tool` for bounded exploration. For complete analysis,
+   write a reproducible local workflow that validates coverage and retains provenance.

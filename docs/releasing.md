@@ -56,8 +56,8 @@ not erase it from history.
 3. Tag that commit and push the tag, for example:
 
    ```sh
-   git tag -a v0.1.0 -m "Odin MCP 0.1.0"
-   git push origin v0.1.0
+   git tag -a v0.2.0 -m "Odin MCP 0.2.0"
+   git push origin v0.2.0
    ```
 
 The `Release` workflow reruns the complete CI workflow at the tag. After all

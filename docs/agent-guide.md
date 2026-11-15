@@ -9,8 +9,9 @@ research guidance. It does not host a model, run retrievals or submit cloud jobs
 - `odin_mcp/research.py` and `odin_mcp/research/`: offline topic lookup, search,
   citations and analysis-planning instructions.
 - `odin_mcp/schema_resource.py`: reference layout, not a universal release schema.
-- `odin_mcp/s3_browser.py`, `parquet_reader.py`, `config.py`: optional direct S3
-  discovery and local Parquet reading using a researcher-supplied AWS profile.
+- `catalog.py`, `public_http.py`, `parquet_reader.py` and `config.py`:
+  anonymous public metadata requests, verified file selection and bounded local
+  Parquet decoding. No AWS SDK or credentials are required.
 - `tests/`: mocked data access and offline protocol tests; never use real AWS
   credentials in CI.
 - `docs/llm-guide.md`: client-independent scientific workflow instructions.
@@ -28,7 +29,10 @@ Preserve distinctions among measurement noise, smoothing, sampling variability
 and systematic uncertainty. Do not silently convert retrieval coordinates,
 kernel conventions or error definitions.
 
-Existing Parquet previews may fetch whole objects despite output row limits.
+Parquet previews fetch whole selected objects within explicit byte budgets;
+output row limits do not reduce transfer. Preserve HTTP validators, snapshot
+identity and checksum status. An HTTP ETag is not a content checksum. Reject
+foreign URLs, redirects and requests beyond the configured limits.
 Keep actual observations and generated results outside the public repository.
 Use bounded requests only when the researcher authorizes direct data access.
 

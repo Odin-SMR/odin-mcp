@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from odin_mcp.config import PARTITION_LEVELS
+from odin_mcp.config import ARCHIVE_INDEX_URL, PARTITION_LEVELS, SAMPLE_CATALOG_URL
 
 
 OFFICIAL_PRODUCTION_PROJECTS = [
@@ -37,7 +37,8 @@ DATASET_COLUMNS = [
 def dataset_schema_json() -> str:
   payload = {
     "dataset": "odin-level2",
-    "bucket": "s3://odin-level2",
+    "archive_catalog": ARCHIVE_INDEX_URL,
+    "example_catalog": SAMPLE_CATALOG_URL,
     "shape_stability": "reference_layout_only",
     "schema_scope": "Expected historical L2 layout, not a guarantee across archive generations. Verify selected release and file schemas.",
     "research_guide": "odin://research/topics/odin-contract",
@@ -48,8 +49,8 @@ def dataset_schema_json() -> str:
       "freq_mode": "Frequency mode identifier used by retrieval configuration.",
       "inv_mode": "Inversion mode.",
       "product": "Product family and retrieval window.",
-      "year": "UTC year partition.",
-      "month": "UTC month partition (01-12).",
+      "year": "Storage year label; verify actual row timestamps.",
+      "month": "Storage month label (01-12); not a row-time filter.",
     },
     "columns": DATASET_COLUMNS,
   }
@@ -61,7 +62,8 @@ def dataset_schema_markdown() -> str:
     return f"""# Odin Level2 Dataset Schema Guide
 
 This resource explains the dataset structure and common field meanings for
-`s3://odin-level2`.
+the public catalog at {ARCHIVE_INDEX_URL}. Obtain exact HTTPS file URLs from
+discovery; partition examples are reference layouts, not guaranteed objects.
 
 Official production projects:
 
@@ -75,9 +77,9 @@ Parquet files are partitioned by the following levels (in order):
 
 {levels}
 
-Typical file path:
+Reference archive path layout:
 
-`s3://odin-level2/project=ALL-Strat-v3.0.0/freq_mode=2/inv_mode=stnd/product=O3-545GHz-20to85km/year=2025/month=01/<file>.parquet`
+`https://odin-smr.org/l2/project=ALL-Strat-v3.0.0/freq_mode=2/inv_mode=stnd/product=O3-545GHz-20to85km/year=2025/month=01/<file>.parquet`
 
 Partition meaning:
 
@@ -85,8 +87,8 @@ Partition meaning:
 - `freq_mode`: Frequency mode identifier used by the retrieval chain.
 - `inv_mode`: Inversion mode (`stnd`, `meso`, ...).
 - `product`: Product family and retrieval window.
-- `year`: UTC year partition.
-- `month`: UTC month partition (`01`-`12`).
+- `year`: Storage year label; verify actual row timestamps.
+- `month`: Storage month label (`01`-`12`); not a row-time filter.
 
 ## 2. Column Schema
 

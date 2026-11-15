@@ -1,27 +1,25 @@
 {
   "list_projects": {
     "tool": "list_partition_values_tool",
-    "input": {
-      "level": "project"
-    }
+    "input": {"level": "project"}
   },
   "list_parquet_files": {
     "tool": "list_parquet_files_tool",
     "input": {
       "project": "ALL-Strat-v3.0.0",
-      "freq_mode": "2",
+      "freq_mode": "1",
       "inv_mode": "stnd",
-      "year": "2025",
-      "month": "01",
-      "limit": 5,
-      "product": "O3-545GHz-20to85km"
+      "product": "O3-501GHz-20to50km",
+      "year": "2019",
+      "month": "03",
+      "limit": 5
     }
   },
-  "preview_single_file": {
+  "preview_small_public_file": {
     "tool": "read_parquet_preview_tool",
     "input": {
-      "s3_uri": "s3://odin-level2/project=ALL-Strat-v3.0.0/freq_mode=2/inv_mode=stnd/product=O3-545GHz-20to85km/year=2025/month=01/e5979a5400b04e18be54130aafa28a8e-0.parquet",
-      "rows": 10
+      "file_url": "https://odin-smr.org/l2/project=ALL-Strat-v3.0.0/freq_mode=1/inv_mode=stnd/product=O3-501GHz-20to50km/year=2019/month=03/c8c96302988a4445ab662df76b323913-0.parquet",
+      "rows": 5
     }
   }
 }

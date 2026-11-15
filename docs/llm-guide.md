@@ -55,17 +55,23 @@ scope recorded. Do not invent citations or imply unavailable full text was read.
 
 ## Data access and cost boundaries
 
-Start with documentation unless the researcher requests observations. Direct S3
-tools need that researcher's approved AWS profile. Never request credentials in
-chat or copy them into code, reports or Git. Follow the client's own tool-approval
+Start with documentation unless the researcher requests observations. Data tools
+use anonymous public HTTPS; never ask the researcher to create an AWS account,
+configure a profile or provide credentials. Do not put tokens in chat, code or Git. Follow the client's own tool-approval
 settings. Returned tool content may be sent to the client's model provider; local
 MCP execution does not imply the model itself runs locally.
 
-For authorized reads, use narrow partitions with all parent values or an exact
-file URI. Request only needed columns and small outputs. A row limit does not
-limit downloaded bytes: the current reader may fetch the entire Parquet object.
+For requested reads, use narrow filters or a `file_url` obtained from
+`list_parquet_files_tool`. Request only needed columns and small outputs. A row
+limit is distinct from the enforced download-byte limit: the reader may fetch the
+entire selected object. Respect metadata, download, decoding and response caps;
+use a separate local script when a request exceeds them. Do not silently truncate
+kernels or treat a partial profile as complete.
 Do not repeatedly scan the archive to answer a documentation question. A preview
-does not establish complete coverage or scientific representativeness. If data
+does not establish complete coverage or scientific representativeness. Inventory
+snapshots and partition labels do not certify actual measurement coverage. Preserve
+file URLs, snapshot identity, checksum status and the stated non-finite-value
+serialization when converting returned rows into numerical arrays. If data
 access is unavailable, provide a plan and runnable script, stating the limitation.
 
 No tool in this server submits AWS compute jobs, performs a live article search
