@@ -1,0 +1,49 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+.venv-*/
+
+# Credentials and machine-local configuration
+.env
+.env.*
+.envrc
+.aws/
+credentials
+*.pem
+*.key
+*.p12
+*.pfx
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scientific data and generated results
+/plots/
+/data/
+/results/
+*.parquet
+*.nc
+*.h5
+*.hdf
+*.hdf5
+*.npy
+*.npz
+
+# Test, tool and build state
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.local/
+*.log
+/main.py
